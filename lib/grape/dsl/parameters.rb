@@ -130,7 +130,7 @@ module Grape
 
         opts = attrs.extract_options!.clone
         opts[:presence] = { value: true, message: opts[:message] }
-        opts = @group.merge(opts) if instance_variable_defined?(:@group) && @group
+        opts = @group.deep_merge(opts) if instance_variable_defined?(:@group) && @group
 
         if opts[:using]
           require_required_and_optional_fields(attrs.first, opts)
@@ -149,7 +149,7 @@ module Grape
 
         opts = attrs.extract_options!.clone
         type = opts[:type]
-        opts = @group.merge(opts) if instance_variable_defined?(:@group) && @group
+        opts = @group.deep_merge(opts) if instance_variable_defined?(:@group) && @group
 
         # check type for optional parameter group
         if attrs && block
@@ -170,7 +170,8 @@ module Grape
       # @param (see #requires)
       # @option (see #requires)
       def with(*attrs, &block)
-        new_group_scope(attrs.clone, &block)
+        new_group_attrs = [@group, attrs.clone.first].compact.reduce(&:deep_merge)
+        new_group_scope([new_group_attrs], &block)
       end
 
       # Disallow the given parameters to be present in the same request.
@@ -230,7 +231,7 @@ module Grape
 
       alias group requires
 
-      class EmptyOptionalValue; end
+      class EmptyOptionalValue; end # rubocop:disable Lint/EmptyClass
 
       def map_params(params, element, is_array = false)
         if params.is_a?(Array)

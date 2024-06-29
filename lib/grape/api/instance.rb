@@ -46,7 +46,7 @@ module Grape
         # Parses the API's definition and compiles it into an instance of
         # Grape::API.
         def compile
-          @instance ||= new
+          @instance ||= new # rubocop:disable Naming/MemoizedInstanceVariableName
         end
 
         # Wipe the compiled API so we can recompile after changes were made.
@@ -125,6 +125,7 @@ module Grape
         end
 
         def inherited(subclass)
+          super
           subclass.reset!
           subclass.logger = logger.clone
         end
@@ -160,9 +161,13 @@ module Grape
 
       # Handle a request. See Rack documentation for what `env` is.
       def call(env)
-        result = @router.call(env)
-        result[1].delete(Grape::Http::Headers::X_CASCADE) unless cascade?
-        result
+        status, headers, response = @router.call(env)
+        unless cascade?
+          headers = Grape::Util::Header.new.merge(headers)
+          headers.delete(Grape::Http::Headers::X_CASCADE)
+        end
+
+        [status, headers, response]
       end
 
       # Some requests may return a HTTP 404 error if grape cannot find a matching
@@ -201,11 +206,11 @@ module Grape
 
               allowed_methods = config[:methods].dup
 
-              allowed_methods |= [Grape::Http::Headers::HEAD] if !self.class.namespace_inheritable(:do_not_route_head) && allowed_methods.include?(Grape::Http::Headers::GET)
+              allowed_methods |= [Rack::HEAD] if !self.class.namespace_inheritable(:do_not_route_head) && allowed_methods.include?(Rack::GET)
 
-              allow_header = (self.class.namespace_inheritable(:do_not_route_options) ? allowed_methods : [Grape::Http::Headers::OPTIONS] | allowed_methods)
+              allow_header = (self.class.namespace_inheritable(:do_not_route_options) ? allowed_methods : [Rack::OPTIONS] | allowed_methods)
 
-              config[:endpoint].options[:options_route_enabled] = true unless self.class.namespace_inheritable(:do_not_route_options) || allowed_methods.include?(Grape::Http::Headers::OPTIONS)
+              config[:endpoint].options[:options_route_enabled] = true unless self.class.namespace_inheritable(:do_not_route_options) || allowed_methods.include?(Rack::OPTIONS)
 
               attributes = config.merge(allowed_methods: allowed_methods, allow_header: allow_header)
               generate_not_allowed_method(config[:pattern], **attributes)
@@ -216,7 +221,7 @@ module Grape
 
       def collect_route_config_per_pattern
         all_routes       = self.class.endpoints.map(&:routes).flatten
-        routes_by_regexp = all_routes.group_by { |route| route.pattern.to_regexp }
+        routes_by_regexp = all_routes.group_by(&:pattern_regexp)
 
         # Build the configuration based on the first endpoint and the collection of methods supported.
         routes_by_regexp.values.map do |routes|

@@ -56,6 +56,7 @@
     - [values](#values)
     - [except_values](#except_values)
     - [same_as](#same_as)
+    - [length](#length)
     - [regexp](#regexp)
     - [mutually_exclusive](#mutually_exclusive)
     - [exactly_one_of](#exactly_one_of)
@@ -69,6 +70,7 @@
   - [Custom Validation messages](#custom-validation-messages)
     - [presence, allow_blank, values, regexp](#presence-allow_blank-values-regexp)
     - [same_as](#same_as-1)
+    - [length](#length-1)
     - [all_or_none_of](#all_or_none_of-1)
     - [mutually_exclusive](#mutually_exclusive-1)
     - [exactly_one_of](#exactly_one_of-1)
@@ -155,10 +157,9 @@ Grape is a REST-like API framework for Ruby. It's designed to run on Rack or com
 
 ## Stable Release
 
-You're reading the documentation for the next release of Grape, which should be **2.1.0**.
+You're reading the documentation for the next release of Grape, which should be 2.2.0.
 Please read [UPGRADING](UPGRADING.md) when upgrading from a previous version.
-The current stable release is [2.0.0](https://github.com/ruby-grape/grape/blob/v2.0.0/README.md).
-
+The current stable release is [2.1.2](https://github.com/ruby-grape/grape/blob/v2.1.2/README.md).
 
 ## Project Resources
 
@@ -1542,13 +1543,16 @@ Note: param in `given` should be the renamed one. In the example, it should be `
 
 ### Group Options
 
-Parameters options can be grouped. It can be useful if you want to extract common validation or types for several parameters. The example below presents a typical case when parameters share common options.
+Parameters options can be grouped. It can be useful if you want to extract common validation or types for several parameters.
+Within these groups, individual parameters can extend or selectively override the common settings, allowing you to maintain the defaults at the group level while still applying parameter-specific rules where necessary.
+
+The example below presents a typical case when parameters share common options.
 
 ```ruby
 params do
-  requires :first_name, type: String, regexp: /w+/, desc: 'First name'
-  requires :middle_name, type: String, regexp: /w+/, desc: 'Middle name'
-  requires :last_name, type: String, regexp: /w+/, desc: 'Last name'
+  requires :first_name, type: String, regexp: /w+/, desc: 'First name', documentation: { in: 'body' }
+  optional :middle_name, type: String, regexp: /w+/, desc: 'Middle name', documentation: { in: 'body', x: { nullable: true } }
+  requires :last_name, type: String, regexp: /w+/, desc: 'Last name', documentation: { in: 'body' }
 end
 ```
 
@@ -1556,10 +1560,24 @@ Grape allows you to present the same logic through the `with` method in your par
 
 ```ruby
 params do
-  with(type: String, regexp: /w+/) do
+  with(type: String, regexp: /w+/, documentation: { in: 'body' }) do
     requires :first_name, desc: 'First name'
-    requires :middle_name, desc: 'Middle name'
+    optional :middle_name, desc: 'Middle name', documentation: { x: { nullable: true } }
     requires :last_name, desc: 'Last name'
+  end
+end
+```
+
+You can organize settings into layers using nested `with' blocks. Each layer can use, add to, or change the settings of the layer above it. This helps to keep complex parameters organized and consistent, while still allowing for specific customizations to be made.
+
+```ruby
+params do
+  with(documentation: { in: 'body' }) do  # Applies documentation to all nested parameters
+    with(type: String, regexp: /\w+/) do  # Applies type and validation to names
+      requires :first_name, desc: 'First name'
+      requires :last_name, desc: 'Last name'
+    end
+    optional :age, type: Integer, desc: 'Age', documentation: { x: { nullable: true } }  # Specific settings for 'age'
   end
 end
 ```
@@ -1689,6 +1707,20 @@ A `same_as` option can be given to ensure that values of parameters match.
 params do
   requires :password
   requires :password_confirmation, same_as: :password
+end
+```
+
+#### `length`
+
+Parameters with types that support `#length` method can be restricted to have a specific length with the `:length` option.
+
+The validator accepts `:min` or `:max` or both options to validate that the value of the parameter is within the given limits.
+
+```ruby
+params do
+  requires :str, type: String, length: { min: 3 }
+  requires :list, type: [Integer], length: { min: 3, max: 5 }
+  requires :hash, type: Hash, length: { max: 5 }
 end
 ```
 
@@ -2006,6 +2038,15 @@ end
 params do
   requires :password
   requires :password_confirmation, same_as: { value: :password, message: 'not match' }
+end
+```
+
+#### `length`
+
+```ruby
+params do
+  requires :str, type: String, length: { min: 5, message: 'str is expected to be atleast 5 characters long' }
+  requires :list, type: [Integer], length: { min: 2, max: 3, message: 'list is expected to have between 2 and 3 elements' }
 end
 ```
 

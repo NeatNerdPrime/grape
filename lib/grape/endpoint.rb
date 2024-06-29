@@ -151,7 +151,7 @@ module Grape
         reset_routes!
         routes.each do |route|
           methods = [route.request_method]
-          methods << Grape::Http::Headers::HEAD if !namespace_inheritable(:do_not_route_head) && route.request_method == Grape::Http::Headers::GET
+          methods << Rack::HEAD if !namespace_inheritable(:do_not_route_head) && route.request_method == Rack::GET
           methods.each do |method|
             route = Grape::Router::Route.new(method, route.origin, **route.attributes.to_h) unless route.request_method == method
             router.append(route.apply(self))
@@ -190,10 +190,11 @@ module Grape
     end
 
     def prepare_version
-      version = namespace_inheritable(:version) || []
+      version = namespace_inheritable(:version)
+      return unless version
       return if version.empty?
 
-      version.length == 1 ? version.first.to_s : version
+      version.length == 1 ? version.first : version
     end
 
     def merge_route_options(**default)
@@ -206,7 +207,7 @@ module Grape
 
     def prepare_path(path)
       path_settings = inheritable_setting.to_hash[:namespace_stackable].merge(inheritable_setting.to_hash[:namespace_inheritable])
-      Path.prepare(path, namespace, path_settings)
+      Path.new(path, namespace, path_settings)
     end
 
     def namespace
@@ -230,15 +231,15 @@ module Grape
       options[:app].endpoints if options[:app].respond_to?(:endpoints)
     end
 
-    def equals?(e)
-      (options == e.options) && (inheritable_setting.to_hash == e.inheritable_setting.to_hash)
+    def equals?(endpoint)
+      (options == endpoint.options) && (inheritable_setting.to_hash == endpoint.inheritable_setting.to_hash)
     end
 
     protected
 
     def run
       ActiveSupport::Notifications.instrument('endpoint_run.grape', endpoint: self, env: env) do
-        @header = {}
+        @header = Grape::Util::Header.new
         @request = Grape::Request.new(env, build_params_with: namespace_inheritable(:build_params_with))
         @params = @request.params
         @headers = @request.headers
@@ -401,15 +402,11 @@ module Grape
 
     def options?
       options[:options_route_enabled] &&
-        env[Grape::Http::Headers::REQUEST_METHOD] == Grape::Http::Headers::OPTIONS
+        env[Rack::REQUEST_METHOD] == Rack::OPTIONS
     end
 
-    def method_missing(name, *_args)
-      raise NoMethodError.new("undefined method `#{name}' for #{self.class} in `#{route.origin}' endpoint")
-    end
-
-    def respond_to_missing?(method_name, include_private = false)
-      super
+    def inspect
+      "#{self.class} in `#{route.origin}' endpoint"
     end
   end
 end

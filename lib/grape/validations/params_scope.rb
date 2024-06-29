@@ -93,9 +93,7 @@ module Grape
 
       def meets_dependency?(params, request_params)
         return true unless @dependent_on
-
         return false if @parent.present? && !@parent.meets_dependency?(@parent.params(request_params), request_params)
-
         return params.any? { |param| meets_dependency?(param, request_params) } if params.is_a?(Array)
 
         meets_hash_dependency?(params)
@@ -103,7 +101,6 @@ module Grape
 
       def attr_meets_dependency?(params)
         return true unless @dependent_on
-
         return false if @parent.present? && !@parent.attr_meets_dependency?(params)
 
         meets_hash_dependency?(params)
@@ -169,6 +166,10 @@ module Grape
         !@optional
       end
 
+      def reset_index
+        @index = nil
+      end
+
       protected
 
       # Adds a parameter declaration to our list of validations.
@@ -209,11 +210,11 @@ module Grape
 
       def require_required_and_optional_fields(context, opts)
         if context == :all
-          optional_fields = Array(opts[:except])
-          required_fields = opts[:using].keys - optional_fields
+          optional_fields = Array.wrap(opts[:except])
+          required_fields = opts[:using].keys.delete_if { |f| optional_fields.include?(f) }
         else # context == :none
-          required_fields = Array(opts[:except])
-          optional_fields = opts[:using].keys - required_fields
+          required_fields = Array.wrap(opts[:except])
+          optional_fields = opts[:using].keys.delete_if { |f| required_fields.include?(f) }
         end
         required_fields.each do |field|
           field_opts = opts[:using][field]
@@ -229,7 +230,10 @@ module Grape
 
       def require_optional_fields(context, opts)
         optional_fields = opts[:using].keys
-        optional_fields -= Array(opts[:except]) unless context == :all
+        unless context == :all
+          except_fields = Array.wrap(opts[:except])
+          optional_fields.delete_if { |f| except_fields.include?(f) }
+        end
         optional_fields.each do |field|
           field_opts = opts[:using][field]
           optional(field, field_opts) if field_opts
@@ -264,6 +268,7 @@ module Grape
           parent: self,
           optional: optional,
           type: type || Array,
+          group: @group,
           &block
         )
       end
@@ -293,12 +298,7 @@ module Grape
       #   `optional` invocation that opened this scope.
       # @yield parameter scope
       def new_group_scope(attrs, &block)
-        self.class.new(
-          api: @api,
-          parent: self,
-          group: attrs.first,
-          &block
-        )
+        self.class.new(api: @api, parent: self, group: attrs.first, &block)
       end
 
       # Pushes declared params to parent or settings

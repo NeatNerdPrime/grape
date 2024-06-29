@@ -75,7 +75,7 @@ describe Grape::Endpoint do
   it 'sets itself in the env upon call' do
     subject.get('/') { 'Hello world.' }
     get '/'
-    expect(last_request.env['api.endpoint']).to be_a(described_class)
+    expect(last_request.env[Grape::Env::API_ENDPOINT]).to be_a(described_class)
   end
 
   describe '#status' do
@@ -136,26 +136,22 @@ describe Grape::Endpoint do
       end
     end
 
+    let(:headers) do
+      Grape::Util::Header.new.tap do |h|
+        h['Cookie'] = ''
+        h['Host'] = 'example.org'
+      end
+    end
+
     it 'includes request headers' do
       get '/headers'
-      expect(JSON.parse(last_response.body)).to include(
-        'Host' => 'example.org',
-        'Cookie' => ''
-      )
+      expect(JSON.parse(last_response.body)).to include(headers.to_h)
     end
 
     it 'includes additional request headers' do
       get '/headers', nil, 'HTTP_X_GRAPE_CLIENT' => '1'
-      x_grape_client_header = Grape::Http::Headers.lowercase? ? 'x-grape-client' : 'X-Grape-Client'
+      x_grape_client_header = 'x-grape-client'
       expect(JSON.parse(last_response.body)[x_grape_client_header]).to eq('1')
-    end
-
-    it 'includes headers passed as symbols' do
-      env = Rack::MockRequest.env_for('/headers')
-      env[:HTTP_SYMBOL_HEADER] = 'Goliath passes symbols'
-      body = read_chunks(subject.call(env)[2]).join
-      symbol_header = Grape::Http::Headers.lowercase? ? 'symbol-header' : 'Symbol-Header'
-      expect(JSON.parse(body)[symbol_header]).to eq('Goliath passes symbols')
     end
   end
 
@@ -375,7 +371,7 @@ describe Grape::Endpoint do
       end
 
       it 'converts JSON bodies to params' do
-        post '/request_body', ::Grape::Json.dump(user: 'Bobby T.'), 'CONTENT_TYPE' => 'application/json'
+        post '/request_body', Grape::Json.dump(user: 'Bobby T.'), 'CONTENT_TYPE' => 'application/json'
         expect(last_response.body).to eq('Bobby T.')
       end
 
@@ -411,7 +407,7 @@ describe Grape::Endpoint do
           error! 400, 'expected nil' if params[:version]
           params[:user]
         end
-        post '/omitted_params', ::Grape::Json.dump(user: 'Bob'), 'CONTENT_TYPE' => 'application/json'
+        post '/omitted_params', Grape::Json.dump(user: 'Bob'), 'CONTENT_TYPE' => 'application/json'
         expect(last_response.status).to eq(201)
         expect(last_response.body).to eq('Bob')
       end
@@ -468,7 +464,7 @@ describe Grape::Endpoint do
       subject.put '/request_body' do
         params[:user]
       end
-      put '/request_body', ::Grape::Json.dump(user: 'Bob'), 'CONTENT_TYPE' => 'text/plain'
+      put '/request_body', Grape::Json.dump(user: 'Bob'), 'CONTENT_TYPE' => 'text/plain'
 
       expect(last_response.status).to eq(415)
       expect(last_response.body).to eq('{"error":"The provided content-type \'text/plain\' is not supported."}')
@@ -482,7 +478,7 @@ describe Grape::Endpoint do
         subject.post do
           params[:data]
         end
-        post '/', ::Grape::Json.dump(data: { some: 'payload' }), 'CONTENT_TYPE' => 'application/json'
+        post '/', Grape::Json.dump(data: { some: 'payload' }), 'CONTENT_TYPE' => 'application/json'
       end
 
       it 'does not response with 406 for same type without params' do
@@ -658,7 +654,7 @@ describe Grape::Endpoint do
       subject.post('/hey') do
         redirect '/ha'
       end
-      post '/hey', {}, 'HTTP_VERSION' => 'HTTP/1.1'
+      post '/hey', {}, 'HTTP_VERSION' => 'HTTP/1.1', 'SERVER_PROTOCOL' => 'HTTP/1.1'
       expect(last_response.status).to eq 303
       expect(last_response.location).to eq '/ha'
       expect(last_response.body).to eq 'An alternate resource is located at /ha.'
@@ -683,15 +679,19 @@ describe Grape::Endpoint do
     end
   end
 
-  describe '#method_missing' do
-    context 'when referencing an undefined local variable' do
-      it 'raises NoMethodError but stripping the internals of the Grape::Endpoint class and including the API route' do
-        subject.get('/hey') do
-          undefined_helper
+  describe 'NameError' do
+    context 'when referencing an undefined local variable or method' do
+      let(:error_message) do
+        if Gem::Version.new(RUBY_VERSION).release <= Gem::Version.new('3.2')
+          %r{undefined local variable or method `undefined_helper' for #<Class:0x[0-9a-fA-F]+> in `/hey' endpoint}
+        else
+          /undefined local variable or method `undefined_helper' for/
         end
-        expect do
-          get '/hey'
-        end.to raise_error(NoMethodError, %r{^undefined method `undefined_helper' for #<Class:0x[0-9a-fA-F]+> in `/hey' endpoint})
+      end
+
+      it 'raises NameError but stripping the internals of the Grape::Endpoint class and including the API route' do
+        subject.get('/hey') { undefined_helper }
+        expect { get '/hey' }.to raise_error(NameError, error_message)
       end
     end
   end
@@ -838,33 +838,33 @@ describe Grape::Endpoint do
   context 'anchoring' do
     describe 'delete 204' do
       it 'allows for the anchoring option with a delete method' do
-        subject.send(:delete, '/example', anchor: true) {}
-        send(:delete, '/example/and/some/more')
-        expect(last_response.status).to be 404
+        subject.delete('/example', anchor: true)
+        delete '/example/and/some/more'
+        expect(last_response).to be_not_found
       end
 
       it 'anchors paths by default for the delete method' do
-        subject.send(:delete, '/example') {}
-        send(:delete, '/example/and/some/more')
-        expect(last_response.status).to be 404
+        subject.delete '/example'
+        delete '/example/and/some/more'
+        expect(last_response).to be_not_found
       end
 
       it 'responds to /example/and/some/more for the non-anchored delete method' do
-        subject.send(:delete, '/example', anchor: false) {}
-        send(:delete, '/example/and/some/more')
-        expect(last_response.status).to be 204
+        subject.delete '/example', anchor: false
+        delete '/example/and/some/more'
+        expect(last_response).to be_no_content
         expect(last_response.body).to be_empty
       end
     end
 
     describe 'delete 200, with response body' do
       it 'responds to /example/and/some/more for the non-anchored delete method' do
-        subject.send(:delete, '/example', anchor: false) do
+        subject.delete('/example', anchor: false) do
           status 200
           body 'deleted'
         end
-        send(:delete, '/example/and/some/more')
-        expect(last_response.status).to be 200
+        delete '/example/and/some/more'
+        expect(last_response).to be_successful
         expect(last_response.body).not_to be_empty
       end
     end
@@ -966,12 +966,12 @@ describe Grape::Endpoint do
     end
 
     it 'result in a 406 response if they are invalid' do
-      get '/test', {}, 'HTTP_ACCEPT' => 'application/vnd.ohanapi.v1+json'
+      get '/test', {}, Grape::Http::Headers::HTTP_ACCEPT => 'application/vnd.ohanapi.v1+json'
       expect(last_response.status).to eq(406)
     end
 
     it 'result in a 406 response if they cannot be parsed' do
-      get '/test', {}, 'HTTP_ACCEPT' => 'application/vnd.ohanapi.v1+json; version=1'
+      get '/test', {}, Grape::Http::Headers::HTTP_ACCEPT => 'application/vnd.ohanapi.v1+json; version=1'
       expect(last_response.status).to eq(406)
     end
   end

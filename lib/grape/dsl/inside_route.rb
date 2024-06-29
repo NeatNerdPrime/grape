@@ -200,7 +200,7 @@ module Grape
         if permanent
           status 301
           body_message ||= "This resource has been moved permanently to #{url}."
-        elsif env[Grape::Http::Headers::HTTP_VERSION] == 'HTTP/1.1' && request.request_method.to_s.upcase != Grape::Http::Headers::GET
+        elsif http_version == 'HTTP/1.1' && !request.get?
           status 303
           body_message ||= "An alternate resource is located at #{url}."
         else
@@ -226,10 +226,9 @@ module Grape
         when nil
           return @status if instance_variable_defined?(:@status) && @status
 
-          case request.request_method.to_s.upcase
-          when Grape::Http::Headers::POST
+          if request.post?
             201
-          when Grape::Http::Headers::DELETE
+          elsif request.delete?
             if instance_variable_defined?(:@body) && @body.present?
               200
             else
@@ -457,6 +456,14 @@ module Grape
         embeds = { env: env }
         embeds[:version] = env[Grape::Env::API_VERSION] if env.key?(Grape::Env::API_VERSION)
         entity_class.represent(object, **embeds.merge(options))
+      end
+
+      def http_version
+        env['HTTP_VERSION'] || env[Rack::SERVER_PROTOCOL]
+      end
+
+      def context
+        self
       end
     end
   end

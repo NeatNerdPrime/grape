@@ -7,9 +7,7 @@ describe Grape::API do
 
   let(:root_api) { Class.new(described_class) }
 
-  def app
-    root_api
-  end
+  let(:app) { root_api }
 
   describe 'remounting an API' do
     context 'with a defined route' do
@@ -95,7 +93,7 @@ describe Grape::API do
           expect(last_response.body).to eq 'success'
 
           get '/without_conditional/sometimes'
-          expect(last_response.status).to eq 404
+          expect(last_response).to be_not_found
         end
       end
 
@@ -167,18 +165,18 @@ describe Grape::API do
               endpoint: 'test'
             }
             get 'test?another_attr=1'
-            expect(last_response.status).to eq 400
+            expect(last_response).to be_bad_request
             get 'test?my_attr=1'
-            expect(last_response.status).to eq 200
+            expect(last_response).to be_successful
 
             root_api.mount a_remounted_api, with: {
               required_attr_name: 'another_attr',
               endpoint: 'test_b'
             }
             get 'test_b?another_attr=1'
-            expect(last_response.status).to eq 200
+            expect(last_response).to be_successful
             get 'test_b?my_attr=1'
-            expect(last_response.status).to eq 400
+            expect(last_response).to be_bad_request
           end
         end
       end
@@ -264,7 +262,7 @@ describe Grape::API do
           expect(last_response.body).to eq 'success'
 
           get '/different_location'
-          expect(last_response.status).to eq 404
+          expect(last_response).to be_not_found
 
           root_api.mount a_remounted_api, with: { endpoint_name: 'new_location' }
           get '/new_location'
@@ -308,13 +306,15 @@ describe Grape::API do
               tags ['not_configurable_tag', configuration[:a_configurable_tag]]
             end
             get 'location' do
-              'success'
+              route.tags
             end
           end
         end
 
         it 'mounts the endpoint with the appropiate tags' do
           root_api.mount({ a_remounted_api => 'integer' }, with: { a_configurable_tag: 'a configured tag' })
+          get '/integer/location', param_key: 'a'
+          expect(JSON.parse(last_response.body)).to eq ['not_configurable_tag', 'a configured tag']
         end
       end
 
@@ -339,13 +339,13 @@ describe Grape::API do
           expect(last_response.body).to eq 'success'
 
           get '/string/location', param_integer: 1
-          expect(last_response.status).to eq 400
+          expect(last_response).to be_bad_request
 
           get '/integer/location', param_integer: 1
           expect(last_response.body).to eq 'success'
 
           get '/integer/location', param_integer: 'a'
-          expect(last_response.status).to eq 400
+          expect(last_response).to be_bad_request
         end
 
         context 'on dynamic checks' do
@@ -368,7 +368,7 @@ describe Grape::API do
             get '/location', restricted_values: 'sometimes'
             expect(last_response.body).to eq 'success'
             get '/location', restricted_values: 'never'
-            expect(last_response.status).to eq 400
+            expect(last_response).to be_bad_request
           end
         end
       end
@@ -387,13 +387,13 @@ describe Grape::API do
           root_api.mount a_remounted_api, with: { path: 'scores', required_param: 'param_key' }
         end
 
-        it 'will use the dynamic configuration on all routes' do
+        it 'uses the dynamic configuration on all routes' do
           get 'api/votes', param_key: 'a'
           expect(last_response.body).to eql '10 votes'
           get 'api/scores', param_key: 'a'
           expect(last_response.body).to eql '10 votes'
           get 'api/votes'
-          expect(last_response.status).to eq 400
+          expect(last_response).to be_bad_request
         end
       end
 
@@ -480,7 +480,7 @@ describe Grape::API do
           end
         end
 
-        it 'will use the dynamic configuration on all routes' do
+        it 'uses the dynamic configuration on all routes' do
           root_api.mount(a_remounted_api, with: { some_value: 'response value' })
 
           get '/location'
@@ -497,7 +497,7 @@ describe Grape::API do
           end
         end
 
-        it 'will use the dynamic configuration on all routes' do
+        it 'uses the dynamic configuration on all routes' do
           root_api.mount(a_remounted_api, with: { some_value: 'response value' })
 
           get '/location'

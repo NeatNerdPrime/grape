@@ -12,10 +12,6 @@ module Grape
       path
     end
 
-    def self.supported_methods
-      @supported_methods ||= Grape::Http::Headers::SUPPORTED_METHODS + ['*']
-    end
-
     def initialize
       @neutral_map = []
       @neutral_regexes = []
@@ -28,13 +24,12 @@ module Grape
 
       @union = Regexp.union(@neutral_regexes)
       @neutral_regexes = nil
-      self.class.supported_methods.each do |method|
+      (Grape::Http::Headers::SUPPORTED_METHODS + ['*']).each do |method|
+        next unless map.key?(method)
+
         routes = map[method]
-        @optimized_map[method] = routes.map.with_index do |route, index|
-          route.index = index
-          Regexp.new("(?<_#{index}>#{route.pattern.to_regexp})")
-        end
-        @optimized_map[method] = Regexp.union(@optimized_map[method])
+        optimized_map = routes.map.with_index { |route, index| route.to_regexp(index) }
+        @optimized_map[method] = Regexp.union(optimized_map)
       end
       @compiled = true
     end
@@ -44,8 +39,10 @@ module Grape
     end
 
     def associate_routes(pattern, **options)
-      @neutral_regexes << Regexp.new("(?<_#{@neutral_map.length}>)#{pattern.to_regexp}")
-      @neutral_map << Grape::Router::GreedyRoute.new(pattern: pattern, index: @neutral_map.length, **options)
+      Grape::Router::GreedyRoute.new(pattern: pattern, **options).then do |greedy_route|
+        @neutral_regexes << greedy_route.to_regexp(@neutral_map.length)
+        @neutral_map << greedy_route
+      end
     end
 
     def call(env)
@@ -88,26 +85,33 @@ module Grape
 
     def transaction(env)
       input, method = *extract_input_and_method(env)
-      response = yield(input, method)
 
-      return response if response && !(cascade = cascade?(response))
+      # using a Proc is important since `return` will exit the enclosing function
+      cascade_or_return_response = proc do |response|
+        if response
+          cascade?(response).tap do |cascade|
+            return response unless cascade
 
+            # we need to close the body if possible before dismissing
+            response[2].close if response[2].respond_to?(:close)
+          end
+        end
+      end
+
+      last_response_cascade = cascade_or_return_response.call(yield(input, method))
       last_neighbor_route = greedy_match?(input)
 
       # If last_neighbor_route exists and request method is OPTIONS,
       # return response by using #call_with_allow_headers.
-      return call_with_allow_headers(env, last_neighbor_route) if last_neighbor_route && method == Grape::Http::Headers::OPTIONS && !cascade
+      return call_with_allow_headers(env, last_neighbor_route) if last_neighbor_route && method == Rack::OPTIONS && !last_response_cascade
 
       route = match?(input, '*')
 
-      return last_neighbor_route.endpoint.call(env) if last_neighbor_route && cascade && route
+      return last_neighbor_route.endpoint.call(env) if last_neighbor_route && last_response_cascade && route
 
-      if route
-        response = process_route(route, env)
-        return response if response && !(cascade = cascade?(response))
-      end
+      last_response_cascade = cascade_or_return_response.call(process_route(route, env)) if route
 
-      return call_with_allow_headers(env, last_neighbor_route) if !cascade && last_neighbor_route
+      return call_with_allow_headers(env, last_neighbor_route) if !last_response_cascade && last_neighbor_route
 
       nil
     end
@@ -123,8 +127,8 @@ module Grape
     end
 
     def extract_input_and_method(env)
-      input = string_for(env[Grape::Http::Headers::PATH_INFO])
-      method = env[Grape::Http::Headers::REQUEST_METHOD]
+      input = string_for(env[Rack::PATH_INFO])
+      method = env[Rack::REQUEST_METHOD]
       [input, method]
     end
 
@@ -134,15 +138,16 @@ module Grape
     end
 
     def default_response
-      [404, { Grape::Http::Headers::X_CASCADE => 'pass' }, ['404 Not Found']]
+      headers = Grape::Util::Header.new.merge(Grape::Http::Headers::X_CASCADE => 'pass')
+      [404, headers, ['404 Not Found']]
     end
 
     def match?(input, method)
-      @optimized_map[method].match(input) { |m| @map[method].detect { |route| m["_#{route.index}"] } }
+      @optimized_map[method].match(input) { |m| @map[method].detect { |route| m[route.regexp_capture_index] } }
     end
 
     def greedy_match?(input)
-      @union.match(input) { |m| @neutral_map.detect { |route| m["_#{route.index}"] } }
+      @union.match(input) { |m| @neutral_map.detect { |route| m[route.regexp_capture_index] } }
     end
 
     def call_with_allow_headers(env, route)

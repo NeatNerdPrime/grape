@@ -1,7 +1,38 @@
-### 2.1.0 (Next)
+### 2.2.0 (Next)
 
 #### Features
 
+* Your contribution here.
+
+#### Fixes
+
+* [#2467](https://github.com/ruby-grape/grape/pull/2467): Fix repo coverage - [@ericproulx](https://github.com/ericproulx).
+* Your contribution here.
+
+### 2.1.2 (2024-06-28)
+
+#### Fixes
+
+* [#2459](https://github.com/ruby-grape/grape/pull/2459): Autocorrect cops - [@ericproulx](https://github.com/ericproulx).
+* [#3458](https://github.com/ruby-grape/grape/pull/2458): Remove unused Grape::Util::Accept::Header - [@ericproulx](https://github.com/ericproulx).
+* [#2463](https://github.com/ruby-grape/grape/pull/2463): Fix error message indices - [@ericproulx](https://github.com/ericproulx).
+
+### 2.1.1 (2024-06-22)
+
+#### Features
+
+* [#2450](https://github.com/ruby-grape/grape/pull/2450): Update RuboCop to 1.64.1 - [@ericproulx](https://github.com/ericproulx).
+
+#### Fixes
+
+* [#2453](https://github.com/ruby-grape/grape/pull/2453): Fix context in rescue_from - [@ericproulx](https://github.com/ericproulx).
+* [#2455](https://github.com/ruby-grape/grape/pull/2455): Fix default response headers to work with Rack 3 - [@ericproulx](https://github.com/ericproulx).
+
+### 2.1.0 (2024/06/15)
+
+#### Features
+
+* [#2432](https://github.com/ruby-grape/grape/pull/2432): Deep merge for group parameter attributes - [@numbata](https://github.com/numbata).
 * [#2419](https://github.com/ruby-grape/grape/pull/2419): Add the `contract` DSL - [@dgutov](https://github.com/dgutov).
 * [#2371](https://github.com/ruby-grape/grape/pull/2371): Use a param value as the `default` value of other param - [@jcagarcia](https://github.com/jcagarcia).
 * [#2377](https://github.com/ruby-grape/grape/pull/2377): Allow to use instance variables values inside `rescue_from` - [@jcagarcia](https://github.com/jcagarcia).
@@ -21,7 +52,15 @@
 * [#2426](https://github.com/ruby-grape/grape/pull/2426): Drop support for rack 1.x series - [@ericproulx](https://github.com/ericproulx).
 * [#2427](https://github.com/ruby-grape/grape/pull/2427): Use `rack-contrib` jsonp instead of rack-jsonp - [@ericproulx](https://github.com/ericproulx).
 * [#2363](https://github.com/ruby-grape/grape/pull/2363): Replace autoload by zeitwerk - [@ericproulx](https://github.com/ericproulx).
-* Your contribution here.
+* [#2425](https://github.com/ruby-grape/grape/pull/2425): Replace `{}` with `Rack::Header` or `Rack::Utils::HeaderHash` - [@dhruvCW](https://github.com/dhruvCW).
+* [#2430](https://github.com/ruby-grape/grape/pull/2430): Isolate extensions within specific gemfile - [@ericproulx](https://github.com/ericproulx).
+* [#2431](https://github.com/ruby-grape/grape/pull/2431): Drop appraisals in favor of eval_gemfile - [@ericproulx](https://github.com/ericproulx).
+* [#2435](https://github.com/ruby-grape/grape/pull/2435): Use rack constants - [@ericproulx](https://github.com/ericproulx).
+* [#2436](https://github.com/ruby-grape/grape/pull/2436): Update coverallsapp github-action - [@ericproulx](https://github.com/ericproulx).
+* [#2434](https://github.com/ruby-grape/grape/pull/2434): Implement nested `with` support in parameter dsl - [@numbata](https://github.com/numbata).
+* [#2438](https://github.com/ruby-grape/grape/pull/2438): Fix some Rack::Lint - [@ericproulx](https://github.com/ericproulx).
+* [#2437](https://github.com/ruby-grape/grape/pull/2437): Add length validator - [@dhruvCW](https://github.com/dhruvCW).
+* [#2445](https://github.com/ruby-grape/grape/pull/2445): Remove builder as a dependency - [@ericproulx](https://github.com/ericproulx).
 
 #### Fixes
 
@@ -34,7 +73,9 @@
 * [#2405](https://github.com/ruby-grape/grape/pull/2405): Fix edge workflow - [@ericproulx](https://github.com/ericproulx).
 * [#2414](https://github.com/ruby-grape/grape/pull/2414): Fix Rack::Lint missing content-type - [@ericproulx](https://github.com/ericproulx).
 * [#2378](https://github.com/ruby-grape/grape/pull/2378): Do not overwrite `route_param` with a regular one if they share same name - [@arg](https://github.com/arg).
-* Your contribution here.
+* [#2444](https://github.com/ruby-grape/grape/pull/2444): Replace method_missing in endpoint - [@ericproulx](https://github.com/ericproulx).
+* [#2441](https://github.com/ruby-grape/grape/pull/2441): Optimize memory alloc and retained - [@ericproulx](https://github.com/ericproulx).
+* [#2449](https://github.com/ruby-grape/grape/pull/2449): Rack 3.1 fixes - [@ericproulx](https://github.com/ericproulx).
 
 ### 2.0.0 (2023/11/11)
 

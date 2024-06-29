@@ -4,11 +4,7 @@ describe Grape::Validations do
   subject { Class.new(Grape::API) }
 
   let(:app) { subject }
-  let(:declard_params) {}
-
-  def declared_params
-    subject.namespace_stackable(:declared_params).flatten
-  end
+  let(:declared_params) { subject.namespace_stackable(:declared_params).flatten }
 
   describe 'params' do
     context 'optional' do
@@ -1365,24 +1361,6 @@ describe Grape::Validations do
     end
 
     context 'named' do
-      context 'can be defined' do
-        it 'in helpers' do
-          subject.helpers do
-            params :pagination do
-            end
-          end
-        end
-
-        it 'in helper module which kind of Grape::DSL::Helpers::BaseHelper' do
-          shared_params = Module.new do
-            extend Grape::DSL::Helpers::BaseHelper
-            params :pagination do
-            end
-          end
-          subject.helpers shared_params
-        end
-      end
-
       context 'can be included in usual params' do
         before do
           shared_params = Module.new do
@@ -1986,6 +1964,48 @@ describe Grape::Validations do
 
         get '/exactly_one_of_group', drink: { foo: 'bar' }, beer: 'true'
         expect(last_response.status).to eq(400)
+      end
+    end
+
+    # Ensure there is no leakage of indices between requests
+    context 'required with a hash inside an array' do
+      before do
+        subject.params do
+          requires :items, type: Array do
+            requires :item, type: Hash do
+              requires :name, type: String
+            end
+          end
+        end
+        subject.post '/required' do
+          'required works'
+        end
+      end
+
+      let(:valid_item) { { item: { name: 'foo' } } }
+
+      let(:params) do
+        {
+          items: [
+            valid_item,
+            valid_item,
+            {}
+          ]
+        }
+      end
+
+      it 'makes sure the error message is independent of the previous request' do
+        post_with_json '/required', {}
+        expect(last_response).to be_bad_request
+        expect(last_response.body).to eq('items is missing, items[item][name] is missing')
+
+        post_with_json '/required', params
+        expect(last_response).to be_bad_request
+        expect(last_response.body).to eq('items[2][item] is missing, items[2][item][name] is missing')
+
+        post_with_json '/required', {}
+        expect(last_response).to be_bad_request
+        expect(last_response.body).to eq('items is missing, items[item][name] is missing')
       end
     end
   end

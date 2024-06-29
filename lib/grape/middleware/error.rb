@@ -40,7 +40,7 @@ module Grape
 
       def rack_response(status, headers, message)
         message = Rack::Utils.escape_html(message) if headers[Rack::CONTENT_TYPE] == TEXT_HTML
-        Rack::Response.new(Array.wrap(message), Rack::Utils.status_code(status), headers)
+        Rack::Response.new(Array.wrap(message), Rack::Utils.status_code(status), Grape::Util::Header.new.merge(headers))
       end
 
       def format_message(message, backtrace, original_exception = nil)
@@ -74,8 +74,8 @@ module Grape
         rack_response(status, headers, format_message(message, backtrace, original_exception))
       end
 
-      def default_rescue_handler(e)
-        error_response(message: e.message, backtrace: e.backtrace, original_exception: e)
+      def default_rescue_handler(exception)
+        error_response(message: exception.message, backtrace: exception.backtrace, original_exception: exception)
       end
 
       def rescue_handler_for_base_only_class(klass)

@@ -57,20 +57,17 @@ Metrics/ModuleLength:
 Metrics/PerceivedComplexity:
   Max: 15
 
-RSpec/Capybara/FeatureMethods:
-  Enabled: false
-
 RSpec/ExampleLength:
   Max: 60
 
 RSpec/NestedGroups:
   Max: 6
 
-RSpec/FilePath:
-  SpecSuffixOnly: true
-
 RSpec/SpecFilePathFormat:
   Enabled: false
+
+RSpec/SpecFilePathSuffix:
+  Enabled: true
 
 RSpec/MultipleExpectations:
   Enabled: false
@@ -83,3 +80,6 @@ RSpec/MultipleMemoizedHelpers:
 
 RSpec/ContextWording:
   Enabled: false
+
+RSpec/MessageSpies:
+  EnforcedStyle: receive

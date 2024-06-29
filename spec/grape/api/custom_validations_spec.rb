@@ -33,7 +33,7 @@ describe Grape::Validations do
         end
       end
     end
-    let(:app) { Rack::Builder.new(subject) }
+    let(:app) { subject }
 
     before { stub_const('Grape::Validations::Validators::DefaultLengthValidator', default_length_validator) }
 
@@ -71,11 +71,11 @@ describe Grape::Validations do
     let(:in_body_validator) do
       Class.new(Grape::Validations::Validators::PresenceValidator) do
         def validate(request)
-          validate!(request.env['api.request.body'])
+          validate!(request.env[Grape::Env::API_REQUEST_BODY])
         end
       end
     end
-    let(:app) { Rack::Builder.new(subject) }
+    let(:app) { subject }
 
     before { stub_const('Grape::Validations::Validators::InBodyValidator', in_body_validator) }
 
@@ -111,7 +111,7 @@ describe Grape::Validations do
         end
       end
     end
-    let(:app) { Rack::Builder.new(subject) }
+    let(:app) { subject }
 
     before { stub_const('Grape::Validations::Validators::WithMessageKeyValidator', message_key_validator) }
 
@@ -151,13 +151,13 @@ describe Grape::Validations do
         end
 
         def access_header
-          Grape::Http::Headers.lowercase? ? 'x-access-token' : 'X-Access-Token'
+          'x-access-token'
         end
       end
     end
 
-    let(:app) { Rack::Builder.new(subject) }
-    let(:x_access_token_header) { Grape::Http::Headers.lowercase? ? 'x-access-token' : 'X-Access-Token' }
+    let(:app) { subject }
+    let(:x_access_token_header) { 'x-access-token' }
 
     before { stub_const('Grape::Validations::Validators::AdminValidator', admin_validator) }
 
